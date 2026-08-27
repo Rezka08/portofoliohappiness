@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buku Pedoman - Happiness Journey</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="images/icon.svg">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="antialiased">
+    <div class="bg-shapes">
+        <div class="shape bg-purple-500 w-96 h-96 top-[-10%] left-[-10%]"></div>
+        <div class="shape bg-yellow-400 w-80 h-80 bottom-[10%] right-[-5%] animation-delay-2000"></div>
+    </div>
+
+    <nav class="fixed top-0 left-0 w-full z-50 md:top-6 md:left-1/2 md:-translate-x-1/2 md:w-[95%] lg:w-max transition-all duration-300">
+        <div class="glass-nav md:rounded-full rounded-none px-6 py-4 md:py-4 flex items-center justify-between gap-6 lg:gap-16 w-full mx-auto">
+            
+            <!-- Logo / Brand -->
+            <a href="index.html" class="flex items-center gap-3 mr-auto md:mr-0">
+                <img src="images/icon.svg" alt="Happiness Logo" class="w-8 h-8 md:w-10 md:h-10">
+                <span class="font-bold text-xl md:text-2xl text-purple-900 tracking-wider font-serif">Happiness.</span>
+            </a>
+
+            <!-- Hamburger Button (Mobile) -->
+            <button id="mobile-menu-btn" class="md:hidden text-purple-700 hover:text-purple-900 focus:outline-none">
+                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                </svg>
+            </button>
+
+            <!-- Navigation Links -->
+            <ul id="nav-links" class="hidden md:flex flex-col md:flex-row absolute md:relative top-full left-0 w-full md:w-auto glass-nav md:bg-transparent md:backdrop-filter-none md:border-none md:box-shadow-none p-6 md:p-0 mt-2 md:mt-0 gap-6 md:gap-10 rounded-2xl md:rounded-none text-center md:text-left">
+                <li><a href="index.html" class="nav-link  text-base font-semibold uppercase tracking-widest text-purple-700 hover:text-purple-950 block md:inline">Beranda</a></li>
+                <li><a href="pelajaran.html" class="nav-link  text-base font-semibold uppercase tracking-widest text-purple-700 hover:text-purple-950 block md:inline">Pelajaran</a></li>
+                <li><a href="hasil-karya.html" class="nav-link  text-base font-semibold uppercase tracking-widest text-purple-700 hover:text-purple-950 block md:inline">Hasil Karya</a></li>
+                <li><a href="buku-pedoman.html" class="nav-link active-link text-base font-semibold uppercase tracking-widest text-purple-700 hover:text-purple-950 block md:inline">Buku Pedoman</a></li>
+                <li><a href="dokumentasi.html" class="nav-link  text-base font-semibold uppercase tracking-widest text-purple-700 hover:text-purple-950 block md:inline">Dokumentasi</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="pt-28 md:pt-40 pb-20 px-6 max-w-7xl mx-auto min-h-screen flex flex-col items-center">
+        <section class="w-full text-center mt-10">
+            <h2 class="text-3xl md:text-5xl font-bold text-purple-950 mb-6">Buku Pedoman</h2>
+            <div class="max-w-3xl mx-auto glass-nav p-8 rounded-3xl border border-purple-900/10 mt-10">
+                <p class="text-purple-800 leading-relaxed text-left">
+                    Ini adalah area untuk Buku Pedoman. Anda bisa meletakkan panduan, aturan, langkah-langkah kerja, atau dokumen PDF yang bisa diunduh oleh pengunjung.
+                </p>
+                <div class="mt-8 text-left">
+                    <ul class="space-y-4 text-purple-800">
+                        <li class="flex items-center gap-3"><span class="w-2 h-2 rounded-full bg-fuchsia-400"></span> Pedoman Penggunaan</li>
+                        <li class="flex items-center gap-3"><span class="w-2 h-2 rounded-full bg-fuchsia-400"></span> Standar Operasional</li>
+                        <li class="flex items-center gap-3"><span class="w-2 h-2 rounded-full bg-fuchsia-400"></span> Panduan Kreatif</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>

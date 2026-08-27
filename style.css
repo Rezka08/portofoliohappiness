@@ -1,0 +1,75 @@
+body {
+    font-family: 'Inter', sans-serif;
+    /* Tema background putih */
+    background: #ffffff;
+    color: #4c1d95; /* warna teks ungu gelap */
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* Latar belakang dinamis (opsional, untuk mempermanis mata) */
+.bg-shapes {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    z-index: -1;
+    overflow: hidden;
+}
+.shape {
+    position: absolute;
+    filter: blur(80px);
+    opacity: 0.15; /* kurangi opacity karena background putih */
+    border-radius: 50%;
+    animation: float 10s infinite alternate ease-in-out;
+}
+@keyframes float {
+    0% { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(30px, -50px) scale(1.1); }
+}
+
+/* Glassmorphism Navbar ala Apple - disesuaikan untuk background terang */
+.glass-nav {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(139, 92, 246, 0.2); /* ungu transparan */
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
+}
+
+/* Transisi untuk pergantian halaman */
+.page-section {
+    display: none;
+    opacity: 0;
+    transition: opacity 0.5s ease-in-out;
+}
+.page-section.active {
+    display: block;
+    opacity: 1;
+    animation: fadeIn 0.6s ease-out forwards;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.nav-link {
+    position: relative;
+    transition: color 0.3s ease;
+}
+.nav-link::after {
+    content: '';
+    position: absolute;
+    width: 0;
+    height: 2px;
+    bottom: -4px;
+    left: 0;
+    background-color: #7e22ce; /* ungu tua untuk active line */
+    transition: width 0.3s ease;
+}
+.nav-link:hover::after, .nav-link.active-link::after {
+    width: 100%;
+}
+.nav-link.active-link {
+    color: #7e22ce;
+    font-weight: 600;
+}
