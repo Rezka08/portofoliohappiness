@@ -3,7 +3,21 @@ const mobileMenuBtn = document.getElementById('mobile-menu-btn');
 const navLinksMenu = document.getElementById('nav-links');
 
 mobileMenuBtn.addEventListener('click', () => {
-    navLinksMenu.classList.toggle('hidden');
+    if (navLinksMenu.classList.contains('hidden')) {
+        navLinksMenu.classList.remove('hidden');
+        // Small delay to allow display:block to apply before animating opacity/transform
+        setTimeout(() => {
+            navLinksMenu.classList.remove('opacity-0', 'scale-95', '-translate-y-4');
+            navLinksMenu.classList.add('opacity-100', 'scale-100', 'translate-y-0');
+        }, 10);
+    } else {
+        navLinksMenu.classList.remove('opacity-100', 'scale-100', 'translate-y-0');
+        navLinksMenu.classList.add('opacity-0', 'scale-95', '-translate-y-4');
+        // Wait for animation to finish before hiding
+        setTimeout(() => {
+            navLinksMenu.classList.add('hidden');
+        }, 300);
+    }
 });
 
 
