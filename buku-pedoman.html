@@ -8,58 +8,1151 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="images/icon.svg">
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* ===== FLIPBOOK CORE ===== */
+        :root {
+            --page-w: 420px;
+            /* A4 portrait: 21 × 29.7 cm  →  ratio = 29.7/21 = 1.41429 */
+            --page-h: calc(var(--page-w) * 1.41429);
+            --shadow-color: rgba(88, 28, 135, 0.25);
+        }
+
+        /* Ambient particles */
+        .particle {
+            position: fixed;
+            border-radius: 50%;
+            pointer-events: none;
+            opacity: 0;
+            animation: floatParticle linear infinite;
+        }
+        @keyframes floatParticle {
+            0%   { transform: translateY(100vh) scale(0); opacity: 0; }
+            10%  { opacity: 0.6; }
+            90%  { opacity: 0.3; }
+            100% { transform: translateY(-10vh) scale(1.2); opacity: 0; }
+        }
+
+        /* Book wrapper */
+        .flipbook-scene {
+            perspective: 2500px;
+            perspective-origin: 50% 45%;
+        }
+
+        .flipbook-book {
+            position: relative;
+            width: calc(var(--page-w) * 2);
+            height: var(--page-h);
+            transform-style: preserve-3d;
+            filter: drop-shadow(0 40px 60px var(--shadow-color));
+            transition: filter 0.4s;
+        }
+
+        /* Spine shadow between pages */
+        .book-spine {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            width: 4px;
+            height: 100%;
+            transform: translateX(-50%);
+            background: linear-gradient(180deg,
+                rgba(88,28,135,0.4) 0%,
+                rgba(147,51,234,0.2) 50%,
+                rgba(88,28,135,0.4) 100%
+            );
+            z-index: 100;
+            pointer-events: none;
+            border-radius: 2px;
+            box-shadow: 0 0 12px rgba(147,51,234,0.5);
+        }
+
+        /* Page stack for depth effect */
+        .page-stack-left,
+        .page-stack-right {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            width: var(--page-w);
+            pointer-events: none;
+            border-radius: 4px 0 0 4px;
+        }
+        .page-stack-left  { left: 0;  border-radius: 4px 0 0 4px; }
+        .page-stack-right { right: 0; border-radius: 0 4px 4px 0; }
+
+        /* Individual page */
+        .page {
+            position: absolute;
+            top: 0;
+            width: var(--page-w);
+            height: var(--page-h);
+            transform-origin: left center;
+            transform-style: preserve-3d;
+            transition: transform 0.85s cubic-bezier(0.645, 0.045, 0.355, 1.000);
+            cursor: pointer;
+            border-radius: 0 4px 4px 0;
+        }
+
+        /* Left pages start from left half */
+        .page { left: var(--page-w); }
+
+        .page.flipped {
+            transform: rotateY(-180deg);
+        }
+
+        .page-front,
+        .page-back {
+            position: absolute;
+            inset: 0;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            overflow: hidden;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .page-back {
+            transform: rotateY(180deg);
+            border-radius: 4px 0 0 4px;
+        }
+
+        .page-front img,
+        .page-back img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+
+        /* Gradient overlay for realism */
+        .page-front::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to right,
+                rgba(0,0,0,0.08) 0%,
+                transparent 15%,
+                transparent 85%,
+                rgba(0,0,0,0.15) 100%
+            );
+            pointer-events: none;
+            border-radius: inherit;
+            transition: opacity 0.4s;
+        }
+        .page-back::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to left,
+                rgba(0,0,0,0.08) 0%,
+                transparent 15%,
+                transparent 85%,
+                rgba(0,0,0,0.15) 100%
+            );
+            pointer-events: none;
+            border-radius: inherit;
+            transition: opacity 0.4s;
+        }
+
+        /* Hover lift effect on active page */
+        .page:not(.flipped):hover {
+            filter: drop-shadow(8px 0 24px rgba(147,51,234,0.35));
+        }
+
+        /* Page curl hint */
+        .page-curl-hint {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(225deg,
+                rgba(255,255,255,0.8) 45%,
+                transparent 46%
+            );
+            border-radius: 0 0 4px 0;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        .page:not(.flipped):hover .page-curl-hint {
+            opacity: 1;
+        }
+
+        /* Closed book cover (shown before open) */
+        .book-closed {
+            position: relative;
+            width: var(--page-w);
+            height: var(--page-h);
+            border-radius: 4px 8px 8px 4px;
+            overflow: hidden;
+            cursor: pointer;
+            box-shadow:
+                -6px 0 20px rgba(0,0,0,0.25),
+                inset -3px 0 8px rgba(0,0,0,0.15);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .book-closed:hover {
+            transform: scale(1.02) translateY(-4px);
+            box-shadow:
+                -10px 8px 36px rgba(88,28,135,0.4),
+                inset -3px 0 8px rgba(0,0,0,0.15);
+        }
+        .book-closed img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .book-closed-spine {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 18px;
+            height: 100%;
+            background: linear-gradient(180deg,
+                #6d28d9 0%,
+                #7c3aed 40%,
+                #5b21b6 100%
+            );
+            box-shadow: inset -3px 0 6px rgba(0,0,0,0.2);
+        }
+
+        /* Navigation Controls */
+        .flip-controls {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-top: 32px;
+        }
+
+        .flip-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #7c3aed, #a855f7);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 22px;
+            transition: all 0.25s ease;
+            box-shadow: 0 4px 16px rgba(124,58,237,0.4);
+        }
+        .flip-btn:hover:not(:disabled) {
+            transform: scale(1.12) translateY(-2px);
+            box-shadow: 0 8px 24px rgba(124,58,237,0.55);
+        }
+        .flip-btn:active:not(:disabled) {
+            transform: scale(0.95);
+        }
+        .flip-btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Page indicator */
+        .page-indicator {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            min-width: 120px;
+        }
+        .page-indicator-text {
+            font-size: 14px;
+            font-weight: 600;
+            color: #5b21b6;
+            letter-spacing: 0.05em;
+        }
+        .progress-bar-track {
+            width: 100%;
+            height: 4px;
+            background: rgba(124,58,237,0.15);
+            border-radius: 9999px;
+            overflow: hidden;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #7c3aed, #ec4899);
+            border-radius: 9999px;
+            transition: width 0.5s ease;
+        }
+
+        /* Thumbnail strip */
+        .thumb-strip {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding: 12px 0 4px;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(124,58,237,0.4) transparent;
+            max-width: calc(var(--page-w) * 2 + 16px);
+        }
+        .thumb-strip::-webkit-scrollbar { height: 4px; }
+        .thumb-strip::-webkit-scrollbar-thumb {
+            background: rgba(124,58,237,0.4);
+            border-radius: 9999px;
+        }
+        .thumb-item {
+            flex: 0 0 56px;
+            height: 72px;
+            border-radius: 4px;
+            overflow: hidden;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+            opacity: 0.6;
+        }
+        .thumb-item:hover { opacity: 1; }
+        .thumb-item.active {
+            border-color: #7c3aed;
+            opacity: 1;
+            box-shadow: 0 0 0 3px rgba(124,58,237,0.25);
+        }
+        .thumb-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* Keyboard hint */
+        .keyboard-hint {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            font-size: 12px;
+            color: #7c3aed;
+            opacity: 0.7;
+            margin-top: 8px;
+        }
+        .kbd {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2px 8px;
+            border: 1px solid rgba(124,58,237,0.4);
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 11px;
+            background: rgba(124,58,237,0.06);
+            color: #5b21b6;
+        }
+
+        /* Full-screen modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(10,0,30,0.85);
+            backdrop-filter: blur(12px);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.35s;
+        }
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+        .modal-img {
+            max-width: 90vw;
+            max-height: 90vh;
+            border-radius: 8px;
+            box-shadow: 0 32px 80px rgba(0,0,0,0.6);
+            object-fit: contain;
+        }
+        .modal-close {
+            position: absolute;
+            top: 24px;
+            right: 24px;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+        .modal-close:hover { background: rgba(255,255,255,0.2); }
+
+        /* Open book animation */
+        @keyframes openBook {
+            from { transform: scale(0.85) rotateY(5deg); opacity: 0; }
+            to   { transform: scale(1) rotateY(0deg);   opacity: 1; }
+        }
+        .flipbook-book { animation: openBook 0.7s cubic-bezier(0.34,1.56,0.64,1) both; }
+
+        /* Shimmer loading skeleton */
+        .skeleton-shimmer {
+            background: linear-gradient(90deg,
+                rgba(124,58,237,0.08) 25%,
+                rgba(124,58,237,0.18) 50%,
+                rgba(124,58,237,0.08) 75%
+            );
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+        @keyframes shimmer {
+            from { background-position: 200% 0; }
+            to   { background-position: -200% 0; }
+        }
+
+        /* Touch swipe indicator */
+        @keyframes swipeHint {
+            0%, 100% { transform: translateX(0) scale(1); opacity: 0.7; }
+            50% { transform: translateX(12px) scale(1.15); opacity: 1; }
+        }
+        .swipe-hint { animation: swipeHint 1.8s ease-in-out 2; }
+
+        /* Responsive adjustments */
+        @media (max-width: 900px) {
+            :root { --page-w: 300px; }
+        }
+        @media (max-width: 680px) {
+            :root { --page-w: min(44vw, 260px); }
+            .flip-btn { width: 44px; height: 44px; font-size: 18px; }
+        }
+        @media (max-width: 480px) {
+            :root { --page-w: 46vw; }
+            .thumb-strip { display: none; }
+        }
+
+        /* ===== BUKU SAKU — Ukuran cover dan halaman disamakan dengan Buku Pedoman ===== */
+        :root {
+            --saku-w: var(--page-w);
+            --saku-h: var(--page-h);
+        }
+
+        /* Scoped inside .saku-scene container */
+        .saku-scene .flipbook-book  { width: calc(var(--saku-w) * 2); height: var(--saku-h); }
+        .saku-scene .page           { width: var(--saku-w); height: var(--saku-h); left: var(--saku-w); }
+        .saku-scene .page-stack-left,
+        .saku-scene .page-stack-right { width: var(--saku-w); height: var(--saku-h); }
+        .saku-scene .book-closed,
+        .book-closed.saku-scene     { width: var(--saku-w); height: var(--saku-h); }
+        .saku-scene .thumb-strip    { max-width: calc(var(--saku-w) * 2 + 16px); }
+        .saku-scene .thumb-item     { flex: 0 0 54px; height: 76px; }
+
+        /* Section divider */
+        .book-divider {
+            width: 100%;
+            max-width: 860px;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(124,58,237,0.25), transparent);
+            margin: 56px 0;
+        }
+    </style>
 </head>
 <body class="antialiased">
+
+    <!-- Ambient background shapes (inherited from site style) -->
     <div class="bg-shapes">
         <div class="shape bg-purple-500 w-96 h-96 top-[-10%] left-[-10%]"></div>
         <div class="shape bg-yellow-400 w-80 h-80 bottom-[10%] right-[-5%] animation-delay-2000"></div>
     </div>
 
+    <!-- Floating particles container -->
+    <div id="particles-container" class="fixed inset-0 overflow-hidden pointer-events-none z-0"></div>
+
+    <!-- ===== NAVBAR ===== -->
     <nav class="fixed top-4 left-1/2 -translate-x-1/2 w-[92%] z-50 lg:top-6 lg:w-[95%] lg:w-max transition-all duration-300">
         <div class="glass-nav rounded-full px-6 py-4 flex items-center justify-between gap-6 lg:gap-16 w-full mx-auto">
-            
-            <!-- Logo / Brand -->
             <a href="index.html" class="flex items-center gap-3 mr-auto lg:mr-0">
                 <img src="images/icon.svg" alt="Happiness Logo" class="w-8 h-8 lg:w-10 lg:h-10">
                 <span class="font-bold text-xl lg:text-2xl text-purple-900 tracking-wider font-serif">Happiness.</span>
             </a>
-
-            <!-- Hamburger Button (Mobile) -->
             <button id="mobile-menu-btn" class="lg:hidden text-purple-700 hover:text-purple-900 focus:outline-none">
-                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
                 </svg>
             </button>
-
-            <!-- Navigation Links -->
             <ul id="nav-links" class="hidden lg:flex flex-col lg:flex-row absolute lg:relative top-full left-0 w-full lg:w-auto bg-white/95 lg:bg-transparent backdrop-blur-2xl lg:backdrop-filter-none border border-purple-100 lg:border-none shadow-2xl lg:shadow-none py-10 px-6 lg:p-0 mt-4 lg:mt-0 gap-8 lg:gap-10 rounded-2xl lg:rounded-none text-center lg:text-left transition-all duration-300 opacity-0 scale-95 -translate-y-4 lg:opacity-100 lg:scale-100 lg:translate-y-0 lg:transition-none origin-top">
-                <li><a href="index.html" class="nav-link  text-base font-semibold uppercase tracking-widest text-purple-700 hover:text-purple-950 inline-block py-4 lg:py-0">Beranda</a></li>
-                <li><a href="pelajaran.html" class="nav-link  text-base font-semibold uppercase tracking-widest text-purple-700 hover:text-purple-950 inline-block py-4 lg:py-0">Pelajaran</a></li>
-                <li><a href="hasil-karya.html" class="nav-link  text-base font-semibold uppercase tracking-widest text-purple-700 hover:text-purple-950 inline-block py-4 lg:py-0">Hasil Karya</a></li>
+                <li><a href="index.html"       class="nav-link text-base font-semibold uppercase tracking-widest text-purple-700 hover:text-purple-950 inline-block py-4 lg:py-0">Beranda</a></li>
+                <li><a href="pelajaran.html"   class="nav-link text-base font-semibold uppercase tracking-widest text-purple-700 hover:text-purple-950 inline-block py-4 lg:py-0">Pelajaran</a></li>
+                <li><a href="hasil-karya.html" class="nav-link text-base font-semibold uppercase tracking-widest text-purple-700 hover:text-purple-950 inline-block py-4 lg:py-0">Hasil Karya</a></li>
                 <li><a href="buku-pedoman.html" class="nav-link active-link text-base font-semibold uppercase tracking-widest text-purple-700 hover:text-purple-950 inline-block py-4 lg:py-0">Buku Pedoman</a></li>
-                <li><a href="dokumentasi.html" class="nav-link  text-base font-semibold uppercase tracking-widest text-purple-700 hover:text-purple-950 inline-block py-4 lg:py-0">Dokumentasi</a></li>
+                <li><a href="dokumentasi.html" class="nav-link text-base font-semibold uppercase tracking-widest text-purple-700 hover:text-purple-950 inline-block py-4 lg:py-0">Dokumentasi</a></li>
             </ul>
         </div>
     </nav>
 
-    <main class="pt-28 md:pt-40 pb-20 px-6 max-w-7xl mx-auto min-h-screen flex flex-col items-center">
-        <section class="w-full text-center mt-10">
-            <h2 class="text-3xl md:text-5xl font-bold text-purple-950 mb-6">Buku Pedoman</h2>
-            <div class="max-w-3xl mx-auto glass-nav p-8 rounded-3xl border border-purple-900/10 mt-10">
-                <p class="text-purple-800 leading-relaxed text-left">
-                    Ini adalah area untuk Buku Pedoman. Anda bisa meletakkan panduan, aturan, langkah-langkah kerja, atau dokumen PDF yang bisa diunduh oleh pengunjung.
-                </p>
-                <div class="mt-8 text-left">
-                    <ul class="space-y-4 text-purple-800">
-                        <li class="flex items-center gap-3"><span class="w-2 h-2 rounded-full bg-fuchsia-400"></span> Pedoman Penggunaan</li>
-                        <li class="flex items-center gap-3"><span class="w-2 h-2 rounded-full bg-fuchsia-400"></span> Standar Operasional</li>
-                        <li class="flex items-center gap-3"><span class="w-2 h-2 rounded-full bg-fuchsia-400"></span> Panduan Kreatif</li>
-                    </ul>
-                </div>
-            </div>
+    <!-- ===== MAIN ===== -->
+    <main class="pt-28 md:pt-36 pb-24 px-4 min-h-screen flex flex-col items-center">
+
+        <!-- Hero heading -->
+        <section class="w-full text-center mb-10">
+            <h2 class="text-3xl md:text-5xl font-bold text-purple-950 mb-3">Buku Pedoman</h2>
+            <p class="text-purple-600 text-base md:text-lg max-w-xl mx-auto">
+                Klik halaman atau gunakan tombol navigasi untuk membalik halaman buku.
+            </p>
         </section>
+
+        <!-- ===== FLIPBOOK WRAPPER ===== -->
+        <div class="flex flex-col items-center gap-0" id="flipbook-wrapper">
+
+            <!-- CLOSED BOOK (landing state) -->
+            <div id="closed-book-view" class="flex flex-col items-center gap-6">
+                <div class="book-closed" id="open-book-btn" title="Klik untuk membuka buku">
+                    <div class="book-closed-spine"></div>
+                    <img src="buku_pedoman/1.webp" alt="Cover Buku Pedoman" id="cover-img">
+                    <!-- Glow overlay on hover -->
+                    <div class="absolute inset-0 bg-gradient-to-r from-purple-900/20 to-transparent pointer-events-none"></div>
+                    <div class="absolute bottom-0 inset-x-0 flex justify-center pb-6 opacity-0 transition-opacity duration-300" id="open-hint">
+                        <span class="bg-white/80 backdrop-blur text-purple-800 text-sm font-semibold px-5 py-2 rounded-full shadow-lg">
+                            ✦ Buka Buku
+                        </span>
+                    </div>
+                </div>
+                <p class="text-purple-500 text-sm animate-pulse">Klik cover untuk membuka &rarr;</p>
+            </div>
+
+            <!-- OPEN FLIPBOOK (hidden initially) -->
+            <div id="open-book-view" class="hidden flex-col items-center gap-6">
+
+                <!-- Book scene -->
+                <div class="flipbook-scene">
+                    <div class="flipbook-book" id="flipbook">
+                        <!-- Left static half (back of cover / visited pages) -->
+                        <div class="page-stack-left" id="left-stack"
+                            style="background: linear-gradient(to right, #e9d5ff, #f3e8ff); box-shadow: inset -4px 0 12px rgba(0,0,0,0.1);">
+                        </div>
+
+                        <!-- Right static half (remaining pages) -->
+                        <div class="page-stack-right" id="right-stack"
+                            style="background: linear-gradient(to left, #e9d5ff, #f3e8ff); box-shadow: inset 4px 0 12px rgba(0,0,0,0.1);">
+                        </div>
+
+                        <!-- Spine -->
+                        <div class="book-spine"></div>
+
+                        <!-- Pages injected by JS -->
+                    </div>
+                </div>
+
+                <!-- Controls row -->
+                <div class="flip-controls">
+                    <button class="flip-btn" id="btn-first" title="Halaman Pertama">⟨⟨</button>
+                    <button class="flip-btn" id="btn-prev"  title="Halaman Sebelumnya">‹</button>
+
+                    <div class="page-indicator">
+                        <span class="page-indicator-text" id="page-label">Halaman 1 / 42</span>
+                        <div class="progress-bar-track">
+                            <div class="progress-bar-fill" id="progress-fill" style="width:0%"></div>
+                        </div>
+                    </div>
+
+                    <button class="flip-btn" id="btn-next"  title="Halaman Berikutnya">›</button>
+                    <button class="flip-btn" id="btn-last"  title="Halaman Terakhir">⟩⟩</button>
+                </div>
+
+                <!-- Keyboard hints -->
+                <div class="keyboard-hint">
+                    <span><span class="kbd">←</span> Prev</span>
+                    <span><span class="kbd">→</span> Next</span>
+                    <span><span class="kbd">Space</span> Next</span>
+                    <span><span class="kbd">F</span> Fullscreen</span>
+                </div>
+
+                <!-- Thumbnail strip -->
+                <div class="thumb-strip" id="thumb-strip"></div>
+
+                <!-- Close book button -->
+                <button id="btn-close-book"
+                    class="mt-2 text-purple-500 text-sm hover:text-purple-800 transition-colors flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                    Tutup Buku
+                </button>
+            </div>
+
+        </div>
+
+        <!-- ===== DIVIDER ===== -->
+        <div class="book-divider"></div>
+
+        <!-- ===== BUKU SAKU FLIPBOOK ===== -->
+        <div class="flex flex-col items-center gap-0 saku-scene" id="saku-wrapper">
+
+            <!-- Section heading -->
+            <section class="w-full text-center mb-10">
+                <h2 class="text-3xl md:text-5xl font-bold text-purple-950 mb-3">Buku Saku</h2>
+                <p class="text-purple-600 text-base md:text-lg max-w-xl mx-auto">
+                    Klik halaman atau gunakan tombol navigasi untuk membalik halaman buku saku.
+                </p>
+            </section>
+
+            <!-- CLOSED (landing) -->
+            <div id="saku-closed-view" class="flex flex-col items-center gap-6">
+                <div class="book-closed saku-scene" id="saku-open-btn" title="Klik untuk membuka buku saku">
+                    <div class="book-closed-spine"></div>
+                    <img src="buku_saku/BUKU SAKU HAPPINESS-1.webp" alt="Cover Buku Saku" id="saku-cover-img">
+                    <div class="absolute inset-0 bg-gradient-to-r from-purple-900/20 to-transparent pointer-events-none"></div>
+                    <div class="absolute bottom-0 inset-x-0 flex justify-center pb-6 opacity-0 transition-opacity duration-300" id="saku-open-hint">
+                        <span class="bg-white/80 backdrop-blur text-purple-800 text-sm font-semibold px-5 py-2 rounded-full shadow-lg">
+                            ✦ Buka Buku Saku
+                        </span>
+                    </div>
+                </div>
+                <p class="text-purple-500 text-sm animate-pulse">Klik cover untuk membuka &rarr;</p>
+            </div>
+
+            <!-- OPEN FLIPBOOK -->
+            <div id="saku-open-view" class="hidden flex-col items-center gap-6">
+
+                <div class="flipbook-scene saku-scene">
+                    <div class="flipbook-book" id="saku-flipbook">
+                        <div class="page-stack-left"
+                            style="background:linear-gradient(to right,#e9d5ff,#f3e8ff);box-shadow:inset -4px 0 12px rgba(0,0,0,0.1);"></div>
+                        <div class="page-stack-right"
+                            style="background:linear-gradient(to left,#e9d5ff,#f3e8ff);box-shadow:inset 4px 0 12px rgba(0,0,0,0.1);"></div>
+                        <div class="book-spine"></div>
+                        <!-- Pages injected by JS -->
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="flip-controls">
+                    <button class="flip-btn" id="saku-btn-first" title="Halaman Pertama">⟨⟨</button>
+                    <button class="flip-btn" id="saku-btn-prev"  title="Halaman Sebelumnya">‹</button>
+                    <div class="page-indicator">
+                        <span class="page-indicator-text" id="saku-page-label">Halaman 1 / 212</span>
+                        <div class="progress-bar-track">
+                            <div class="progress-bar-fill" id="saku-progress-fill" style="width:0%"></div>
+                        </div>
+                    </div>
+                    <button class="flip-btn" id="saku-btn-next"  title="Halaman Berikutnya">›</button>
+                    <button class="flip-btn" id="saku-btn-last"  title="Halaman Terakhir">⟩⟩</button>
+                </div>
+
+                <!-- Keyboard hints -->
+                <div class="keyboard-hint">
+                    <span><span class="kbd">←</span> Prev</span>
+                    <span><span class="kbd">→</span> Next</span>
+                    <span><span class="kbd">Space</span> Next</span>
+                    <span><span class="kbd">F</span> Fullscreen</span>
+                </div>
+
+                <!-- Thumbnail strip -->
+                <div class="thumb-strip saku-scene" id="saku-thumb-strip"></div>
+
+                <!-- Close -->
+                <button id="saku-btn-close"
+                    class="mt-2 text-purple-500 text-sm hover:text-purple-800 transition-colors flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                    Tutup Buku Saku
+                </button>
+            </div>
+
+        </div>
+        <!-- /BUKU SAKU -->
     </main>
 
+    <!-- ===== FULLSCREEN MODAL (buku pedoman) ===== -->
+    <div class="modal-overlay" id="modal-overlay">
+        <button class="modal-close" id="modal-close">✕</button>
+        <img src="" alt="Halaman Fullscreen" class="modal-img" id="modal-img">
+    </div>
+
+    <!-- ===== FULLSCREEN MODAL (buku saku) ===== -->
+    <div class="modal-overlay" id="modal-overlay-saku">
+        <button class="modal-close" id="modal-close-saku">✕</button>
+        <img src="" alt="Halaman Fullscreen Buku Saku" class="modal-img" id="modal-img-saku">
+    </div>
+
+    <!-- ===== SCRIPTS ===== -->
     <script src="script.js"></script>
+    <script>
+    (() => {
+        /* ─── Particles ─── */
+        (function spawnParticles() {
+            const container = document.getElementById('particles-container');
+            if (!container) return;
+            const colors = ['#a855f7','#e879f9','#818cf8','#f0abfc','#c4b5fd'];
+            for (let i = 0; i < 18; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle';
+                const size = Math.random() * 12 + 4;
+                const delay = Math.random() * 12;
+                const duration = Math.random() * 14 + 10;
+                Object.assign(p.style, {
+                    width: size + 'px', height: size + 'px',
+                    left: Math.random() * 100 + '%',
+                    background: colors[Math.floor(Math.random() * colors.length)],
+                    animationDelay: delay + 's',
+                    animationDuration: duration + 's',
+                });
+                container.appendChild(p);
+            }
+        })();
+
+        let lastActiveBook = 'pedoman'; // 'pedoman' | 'saku'
+
+        /* ─── Factory function to initialize a flipbook ─── */
+        function createFlipbook(cfg) {
+            const {
+                firstFile,
+                lastFile,
+                imgDir,
+                filePrefix = '',
+                imgExt = '.webp',
+                flipDuration = 850,
+                bookKey,
+                bookName,
+                wrapperEl,
+                flipbookEl,
+                closedViewEl,
+                openViewEl,
+                openBtnEl,
+                closeBtnEl,
+                btnFirstEl,
+                btnPrevEl,
+                btnNextEl,
+                btnLastEl,
+                pageLabelEl,
+                progressFillEl,
+                thumbStripEl,
+                modalOverlayEl,
+                modalCloseEl,
+                modalImgEl,
+                openHintEl,
+            } = cfg;
+
+            const totalPages = lastFile - firstFile + 1;
+            const pairs = Math.ceil(totalPages / 2);
+            let isAnimating = false;
+            let isOpen = false;
+            let modalPageNum = firstFile;
+
+            const getImgSrc = (num) => `${imgDir}${filePrefix}${num}${imgExt}`;
+
+            const markActive = () => { lastActiveBook = bookKey; };
+
+            if (wrapperEl) {
+                wrapperEl.addEventListener('click', markActive);
+                wrapperEl.addEventListener('touchstart', markActive, { passive: true });
+            }
+
+            /* ─── Build pages ─── */
+            const pages = [];
+            for (let i = 0; i < pairs; i++) {
+                const frontNum = firstFile + i * 2;
+                const backNum = firstFile + i * 2 + 1;
+
+                const pageEl = document.createElement('div');
+                pageEl.className = 'page';
+                pageEl.dataset.pairIndex = i;
+                pageEl.dataset.frontNum = frontNum;
+                pageEl.dataset.backNum = backNum;
+                pageEl.style.zIndex = pairs - i;
+
+                // Front face
+                const front = document.createElement('div');
+                front.className = 'page-front';
+                const fImg = document.createElement('img');
+                fImg.src = getImgSrc(frontNum);
+                fImg.alt = `${bookName} Halaman ${frontNum - firstFile + 1}`;
+                fImg.loading = i < 2 ? 'eager' : 'lazy';
+                front.appendChild(fImg);
+                const curl = document.createElement('div');
+                curl.className = 'page-curl-hint';
+                front.appendChild(curl);
+
+                // Back face
+                const back = document.createElement('div');
+                back.className = 'page-back';
+                if (backNum <= lastFile) {
+                    const bImg = document.createElement('img');
+                    bImg.src = getImgSrc(backNum);
+                    bImg.alt = `${bookName} Halaman ${backNum - firstFile + 1}`;
+                    bImg.loading = i < 3 ? 'eager' : 'lazy';
+                    back.appendChild(bImg);
+                } else {
+                    back.style.background = '#f3e8ff';
+                }
+
+                pageEl.appendChild(front);
+                pageEl.appendChild(back);
+
+                // Click to flip
+                pageEl.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    markActive();
+                    if (isAnimating) return;
+                    if (!pageEl.classList.contains('flipped')) flipForward();
+                    else flipBackward();
+                });
+
+                // Double-click → fullscreen modal
+                pageEl.addEventListener('dblclick', () => {
+                    markActive();
+                    const isFlipped = pageEl.classList.contains('flipped');
+                    const fileNum = parseInt(isFlipped ? pageEl.dataset.backNum : pageEl.dataset.frontNum);
+                    const img = pageEl.querySelector(isFlipped ? '.page-back img' : '.page-front img');
+                    if (img && fileNum <= lastFile) openModal(img.src, fileNum);
+                });
+
+                flipbookEl.appendChild(pageEl);
+                pages.push(pageEl);
+            }
+
+            /* ─── Thumbnails ─── */
+            for (let fileNum = firstFile; fileNum <= lastFile; fileNum++) {
+                const logicalPage = fileNum - firstFile + 1;
+                const item = document.createElement('div');
+                item.className = 'thumb-item';
+                item.dataset.logicalPage = logicalPage;
+                const img = document.createElement('img');
+                img.src = getImgSrc(fileNum);
+                img.alt = `Hlm ${logicalPage}`;
+                img.loading = 'lazy';
+                item.appendChild(img);
+                item.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    markActive();
+                    jumpToLogicalPage(logicalPage);
+                });
+                thumbStripEl.appendChild(item);
+            }
+
+            /* ─── UI update ─── */
+            function updateUI() {
+                const flippedCount = pages.filter(p => p.classList.contains('flipped')).length;
+                const shownLogical = flippedCount === 0 ? 1 : Math.min(flippedCount * 2 + 1, totalPages);
+
+                pageLabelEl.textContent = `Halaman ${shownLogical} / ${totalPages}`;
+                progressFillEl.style.width = ((flippedCount / pairs) * 100) + '%';
+
+                btnFirstEl.disabled = flippedCount === 0;
+                btnPrevEl.disabled = flippedCount === 0;
+                btnNextEl.disabled = flippedCount >= pairs;
+                btnLastEl.disabled = flippedCount >= pairs;
+
+                // Two non-overlapping z-index bands
+                pages.forEach((p, idx) => {
+                    if (p.classList.contains('flipped')) {
+                        p.style.zIndex = idx + 1;         // 1 → pairs
+                    } else {
+                        p.style.zIndex = 2 * pairs - idx; // 2*pairs → pairs+1
+                    }
+                });
+
+                // Active thumbnail
+                thumbStripEl.querySelectorAll('.thumb-item').forEach(t => {
+                    const n = parseInt(t.dataset.logicalPage);
+                    t.classList.toggle('active', n === shownLogical || n === shownLogical + 1);
+                });
+
+                const activeThumb = thumbStripEl.querySelector('.thumb-item.active');
+                if (activeThumb && thumbStripEl.offsetParent !== null) {
+                    const sr = thumbStripEl.getBoundingClientRect();
+                    const tr = activeThumb.getBoundingClientRect();
+                    thumbStripEl.scrollBy({ left: tr.left - sr.left - sr.width / 2 + tr.width / 2, behavior: 'smooth' });
+                }
+            }
+
+            /* ─── Flip Forward ─── */
+            function flipForward() {
+                const page = pages.find(p => !p.classList.contains('flipped'));
+                if (!page || isAnimating) return;
+                isAnimating = true;
+                const savedY = window.scrollY;
+
+                page.style.zIndex = pairs * 3;
+                page.classList.add('flipped');
+
+                requestAnimationFrame(() => window.scrollTo({ top: savedY, behavior: 'instant' }));
+                setTimeout(() => {
+                    page.style.zIndex = '';
+                    isAnimating = false;
+                    updateUI();
+                }, flipDuration + 30);
+            }
+
+            /* ─── Flip Backward ─── */
+            function flipBackward() {
+                const flipped = pages.filter(p => p.classList.contains('flipped'));
+                if (!flipped.length || isAnimating) return;
+                isAnimating = true;
+                const savedY = window.scrollY;
+                const page = flipped[flipped.length - 1];
+
+                page.classList.remove('flipped');
+
+                requestAnimationFrame(() => window.scrollTo({ top: savedY, behavior: 'instant' }));
+                setTimeout(() => {
+                    isAnimating = false;
+                    updateUI();
+                }, flipDuration + 30);
+            }
+
+            /* ─── Jump To Page ─── */
+            function jumpToLogicalPage(logicalPage) {
+                const targetFlipped = Math.ceil(logicalPage / 2);
+                const flippedNow = pages.filter(p => p.classList.contains('flipped')).length;
+                if (targetFlipped === flippedNow) return;
+                const savedY = window.scrollY;
+                pages.forEach((p, idx) => {
+                    if (idx < targetFlipped) p.classList.add('flipped');
+                    else p.classList.remove('flipped');
+                });
+                requestAnimationFrame(() => window.scrollTo({ top: savedY, behavior: 'instant' }));
+                updateUI();
+            }
+
+            /* ─── Open / Close Book ─── */
+            function openBook() {
+                isOpen = true;
+                markActive();
+                closedViewEl.classList.add('hidden');
+                openViewEl.classList.remove('hidden');
+                openViewEl.classList.add('flex');
+                updateUI();
+            }
+
+            function closeBook() {
+                isOpen = false;
+                openViewEl.classList.add('hidden');
+                openViewEl.classList.remove('flex');
+                closedViewEl.classList.remove('hidden');
+            }
+
+            openBtnEl.addEventListener('click', (e) => { e.preventDefault(); openBook(); });
+            closeBtnEl.addEventListener('click', (e) => { e.preventDefault(); closeBook(); });
+
+            if (openHintEl) {
+                openBtnEl.addEventListener('mouseenter', () => openHintEl.style.opacity = '1');
+                openBtnEl.addEventListener('mouseleave', () => openHintEl.style.opacity = '0');
+            }
+
+            /* ─── Nav Buttons ─── */
+            function attachBtn(btn, fn) {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    markActive();
+                    fn();
+                    btn.blur();
+                });
+            }
+            attachBtn(btnNextEl, flipForward);
+            attachBtn(btnPrevEl, flipBackward);
+            attachBtn(btnFirstEl, () => jumpToLogicalPage(1));
+            attachBtn(btnLastEl, () => jumpToLogicalPage(totalPages));
+
+            /* ─── Touch / Swipe ─── */
+            let touchStartX = 0;
+            flipbookEl.addEventListener('touchstart', e => {
+                markActive();
+                touchStartX = e.touches[0].clientX;
+            }, { passive: true });
+            flipbookEl.addEventListener('touchend', e => {
+                if (!isOpen) return;
+                const dx = e.changedTouches[0].clientX - touchStartX;
+                if (Math.abs(dx) < 40) return;
+                if (dx < 0) flipForward(); else flipBackward();
+            });
+
+            /* ─── Modal Overlay ─── */
+            const modalPageCounter = document.createElement('div');
+            Object.assign(modalPageCounter.style, {
+                position: 'absolute', bottom: '28px', left: '50%',
+                transform: 'translateX(-50%)',
+                color: 'rgba(255,255,255,0.75)', fontSize: '13px', fontWeight: '600',
+                letterSpacing: '0.05em', pointerEvents: 'none',
+                background: 'rgba(0,0,0,0.35)', padding: '4px 14px', borderRadius: '9999px',
+            });
+            modalOverlayEl.appendChild(modalPageCounter);
+
+            const modalBtnPrev = document.createElement('button');
+            const modalBtnNext = document.createElement('button');
+            [modalBtnPrev, modalBtnNext].forEach((btn, i) => {
+                Object.assign(btn.style, {
+                    position: 'absolute', top: '50%', transform: 'translateY(-50%)',
+                    [i === 0 ? 'left' : 'right']: '20px',
+                    width: '48px', height: '48px', borderRadius: '50%',
+                    background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.25)',
+                    color: 'white', fontSize: '22px', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    transition: 'background 0.2s', zIndex: '10',
+                });
+                btn.addEventListener('mouseenter', () => btn.style.background = 'rgba(255,255,255,0.25)');
+                btn.addEventListener('mouseleave', () => btn.style.background = 'rgba(255,255,255,0.12)');
+                modalOverlayEl.appendChild(btn);
+            });
+            modalBtnPrev.textContent = '‹';
+            modalBtnNext.textContent = '›';
+
+            function updateModalView() {
+                modalImgEl.src = getImgSrc(modalPageNum);
+                modalPageCounter.textContent = `${modalPageNum - firstFile + 1} / ${totalPages}`;
+            }
+
+            modalBtnPrev.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (modalPageNum > firstFile) {
+                    modalPageNum--;
+                    updateModalView();
+                }
+            });
+            modalBtnNext.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (modalPageNum < lastFile) {
+                    modalPageNum++;
+                    updateModalView();
+                }
+            });
+
+            function openModal(src, fileNum) {
+                if (!src) return;
+                modalPageNum = fileNum || firstFile;
+                updateModalView();
+                modalOverlayEl.classList.add('active');
+            }
+
+            modalCloseEl.addEventListener('click', () => modalOverlayEl.classList.remove('active'));
+            modalOverlayEl.addEventListener('click', e => {
+                if (e.target === modalOverlayEl || e.target === modalImgEl) modalOverlayEl.classList.remove('active');
+            });
+
+            // Initial UI update
+            updateUI();
+
+            return {
+                isOpen: () => isOpen,
+                isModalOpen: () => modalOverlayEl.classList.contains('active'),
+                closeModal: () => modalOverlayEl.classList.remove('active'),
+                modalNext: () => {
+                    if (modalPageNum < lastFile) {
+                        modalPageNum++;
+                        updateModalView();
+                    }
+                },
+                modalPrev: () => {
+                    if (modalPageNum > firstFile) {
+                        modalPageNum--;
+                        updateModalView();
+                    }
+                },
+                flipForward,
+                flipBackward,
+                jumpToLogicalPage,
+                totalPages,
+                openTopModal: () => {
+                    const top = pages.find(p => !p.classList.contains('flipped'));
+                    if (top) {
+                        const src = top.querySelector('.page-front img')?.src;
+                        if (src) openModal(src, parseInt(top.dataset.frontNum));
+                    } else {
+                        const last = pages[pages.length - 1];
+                        if (last) {
+                            const src = last.querySelector('.page-back img')?.src;
+                            if (src) openModal(src, parseInt(last.dataset.backNum));
+                        }
+                    }
+                }
+            };
+        }
+
+        /* ─── Initialize Buku Pedoman (41 pages: 2.webp - 42.webp) ─── */
+        const pedomanBook = createFlipbook({
+            firstFile: 2,
+            lastFile: 42,
+            imgDir: 'buku_pedoman/',
+            imgExt: '.webp',
+            flipDuration: 850,
+            bookKey: 'pedoman',
+            bookName: 'Buku Pedoman',
+            wrapperEl: document.getElementById('flipbook-wrapper'),
+            flipbookEl: document.getElementById('flipbook'),
+            closedViewEl: document.getElementById('closed-book-view'),
+            openViewEl: document.getElementById('open-book-view'),
+            openBtnEl: document.getElementById('open-book-btn'),
+            closeBtnEl: document.getElementById('btn-close-book'),
+            btnFirstEl: document.getElementById('btn-first'),
+            btnPrevEl: document.getElementById('btn-prev'),
+            btnNextEl: document.getElementById('btn-next'),
+            btnLastEl: document.getElementById('btn-last'),
+            pageLabelEl: document.getElementById('page-label'),
+            progressFillEl: document.getElementById('progress-fill'),
+            thumbStripEl: document.getElementById('thumb-strip'),
+            modalOverlayEl: document.getElementById('modal-overlay'),
+            modalCloseEl: document.getElementById('modal-close'),
+            modalImgEl: document.getElementById('modal-img'),
+            openHintEl: document.getElementById('open-hint'),
+        });
+
+        /* ─── Initialize Buku Saku (212 pages: 2.webp - 213.webp) ─── */
+        const sakuBook = createFlipbook({
+            firstFile: 2,
+            lastFile: 213,
+            imgDir: 'buku_saku/',
+            filePrefix: 'BUKU SAKU HAPPINESS-',
+            imgExt: '.webp',
+            flipDuration: 850,
+            bookKey: 'saku',
+            bookName: 'Buku Saku',
+            wrapperEl: document.getElementById('saku-wrapper'),
+            flipbookEl: document.getElementById('saku-flipbook'),
+            closedViewEl: document.getElementById('saku-closed-view'),
+            openViewEl: document.getElementById('saku-open-view'),
+            openBtnEl: document.getElementById('saku-open-btn'),
+            closeBtnEl: document.getElementById('saku-btn-close'),
+            btnFirstEl: document.getElementById('saku-btn-first'),
+            btnPrevEl: document.getElementById('saku-btn-prev'),
+            btnNextEl: document.getElementById('saku-btn-next'),
+            btnLastEl: document.getElementById('saku-btn-last'),
+            pageLabelEl: document.getElementById('saku-page-label'),
+            progressFillEl: document.getElementById('saku-progress-fill'),
+            thumbStripEl: document.getElementById('saku-thumb-strip'),
+            modalOverlayEl: document.getElementById('modal-overlay-saku'),
+            modalCloseEl: document.getElementById('modal-close-saku'),
+            modalImgEl: document.getElementById('modal-img-saku'),
+            openHintEl: document.getElementById('saku-open-hint'),
+        });
+
+        /* ─── Unified Keyboard Navigation ─── */
+        document.addEventListener('keydown', (e) => {
+            // Modal active checks
+            if (pedomanBook.isModalOpen()) {
+                if (e.key === 'ArrowRight') { e.preventDefault(); e.stopPropagation(); pedomanBook.modalNext(); }
+                else if (e.key === 'ArrowLeft') { e.preventDefault(); e.stopPropagation(); pedomanBook.modalPrev(); }
+                else if (e.key === 'Escape') { pedomanBook.closeModal(); }
+                return;
+            }
+            if (sakuBook.isModalOpen()) {
+                if (e.key === 'ArrowRight') { e.preventDefault(); e.stopPropagation(); sakuBook.modalNext(); }
+                else if (e.key === 'ArrowLeft') { e.preventDefault(); e.stopPropagation(); sakuBook.modalPrev(); }
+                else if (e.key === 'Escape') { sakuBook.closeModal(); }
+                return;
+            }
+
+            // Route to whichever book is open or was last interacted with
+            let target = null;
+            if (pedomanBook.isOpen() && !sakuBook.isOpen()) target = pedomanBook;
+            else if (!pedomanBook.isOpen() && sakuBook.isOpen()) target = sakuBook;
+            else if (pedomanBook.isOpen() && sakuBook.isOpen()) target = (lastActiveBook === 'saku') ? sakuBook : pedomanBook;
+
+            if (!target) return;
+
+            if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); target.flipForward(); }
+            else if (e.key === 'ArrowLeft') { e.preventDefault(); target.flipBackward(); }
+            else if (e.key === 'Home') { e.preventDefault(); target.jumpToLogicalPage(1); }
+            else if (e.key === 'End') { e.preventDefault(); target.jumpToLogicalPage(target.totalPages); }
+            else if (e.key === 'f' || e.key === 'F') { target.openTopModal(); }
+        });
+    })();
+    </script>
 </body>
 </html>
